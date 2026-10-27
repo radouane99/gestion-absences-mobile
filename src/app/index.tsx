@@ -1,98 +1,165 @@
-import * as Device from 'expo-device';
-import { Platform, StyleSheet } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useState } from 'react';
+import {
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 
-import { AnimatedIcon } from '@/components/animated-icon';
-import { HintRow } from '@/components/hint-row';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { WebBadge } from '@/components/web-badge';
-import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
-
-function getDevMenuHint() {
-  if (Platform.OS === 'web') {
-    return <ThemedText type="small">use browser devtools</ThemedText>;
-  }
-  if (Device.isDevice) {
-    return (
-      <ThemedText type="small">
-        shake device or press <ThemedText type="code">m</ThemedText> in terminal
-      </ThemedText>
-    );
-  }
-  const shortcut = Platform.OS === 'android' ? 'cmd+m (or ctrl+m)' : 'cmd+d';
-  return (
-    <ThemedText type="small">
-      press <ThemedText type="code">{shortcut}</ThemedText>
-    </ThemedText>
-  );
-}
+import { Redirect } from 'expo-router';
+import { connecter } from '@/data/absences';
+import { useAction } from '@/hooks/use-action';
+import { useSession } from '@/data/session';
 
 export default function HomeScreen() {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const { utilisateur, setUtilisateur } = useSession();
+
+  const { busy, executer } = useAction();
+
+  function seConnecter() {
+    if (!email.trim() || !password) {
+      Alert.alert('Champs manquants', 'Saisissez votre email et votre mot de passe.');
+      return;
+    }
+
+    void executer(async () => {
+      const compte = await connecter(email, password);
+      if (!compte) {
+        Alert.alert('Connexion refusée', 'Email ou mot de passe incorrect.');
+        return;
+      }
+      setPassword('');
+      setUtilisateur(compte);
+    });
+  }
+  if (utilisateur?.role === 'Enseignant') return <Redirect href="/enseignant" />;
+
+  if (utilisateur?.role === 'Étudiant') return <Redirect href="/etudiant" />;
+  if (utilisateur?.role === 'Administrateur') return <Redirect href="/administration" />;
+
   return (
-    <ThemedView style={styles.container}>
-      <SafeAreaView style={styles.safeArea}>
-        <ThemedView style={styles.heroSection}>
-          <AnimatedIcon />
-          <ThemedText type="title" style={styles.title}>
-            Welcome to&nbsp;Expo
-          </ThemedText>
-        </ThemedView>
+    <KeyboardAvoidingView
+      style={styles.page}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+    >
+      <ScrollView contentContainerStyle={styles.contenu} keyboardShouldPersistTaps="handled">
+        <Text style={styles.titre}>Gestion des absences</Text>
+        <Text style={styles.sousTitre}>Connectez-vous à votre espace universitaire</Text>
 
-        <ThemedText type="code" style={styles.code}>
-          get started
-        </ThemedText>
+        <View style={styles.carte}>
+          <Text style={styles.titreFormulaire}>Connexion</Text>
 
-        <ThemedView type="backgroundElement" style={styles.stepContainer}>
-          <HintRow
-            title="Try editing"
-            hint={<ThemedText type="code">src/app/index.tsx</ThemedText>}
+          <Text style={styles.label}>Adresse email</Text>
+          <TextInput
+            style={styles.champ}
+            placeholder="exemple@absence.ma"
+            placeholderTextColor="#8892A2"
+            value={email}
+            onChangeText={setEmail}
+            keyboardType="email-address"
+            autoCapitalize="none"
+            autoCorrect={false}
+            autoComplete="email"
           />
-          <HintRow title="Dev tools" hint={getDevMenuHint()} />
-          <HintRow
-            title="Fresh start"
-            hint={<ThemedText type="code">npm run reset-project</ThemedText>}
-          />
-        </ThemedView>
 
-        {Platform.OS === 'web' && <WebBadge />}
-      </SafeAreaView>
-    </ThemedView>
+          <Text style={styles.label}>Mot de passe</Text>
+          <TextInput
+            style={styles.champ}
+            placeholder="Votre mot de passe"
+            placeholderTextColor="#8892A2"
+            value={password}
+            onChangeText={setPassword}
+            secureTextEntry
+            autoCapitalize="none"
+            autoComplete="current-password"
+            returnKeyType="go"
+            onSubmitEditing={seConnecter}
+          />
+
+          <Pressable
+            style={({ pressed }) => [styles.bouton, pressed && styles.boutonAppuye]}
+            disabled={busy}
+            onPress={seConnecter}
+          >
+            <Text style={styles.texteBouton}>Se connecter</Text>
+          </Pressable>
+        </View>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
+  page: {
     flex: 1,
+    backgroundColor: '#F4F6FA',
+  },
+  contenu: {
+    flexGrow: 1,
     justifyContent: 'center',
-    flexDirection: 'row',
+    padding: 24,
   },
-  safeArea: {
-    flex: 1,
-    paddingHorizontal: Spacing.four,
-    alignItems: 'center',
-    gap: Spacing.three,
-    paddingBottom: BottomTabInset + Spacing.three,
-    maxWidth: MaxContentWidth,
-  },
-  heroSection: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    flex: 1,
-    paddingHorizontal: Spacing.four,
-    gap: Spacing.four,
-  },
-  title: {
+  titre: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: '#183153',
     textAlign: 'center',
   },
-  code: {
-    textTransform: 'uppercase',
+  sousTitre: {
+    fontSize: 15,
+    color: '#657084',
+    textAlign: 'center',
+    marginTop: 12,
+    marginBottom: 30,
   },
-  stepContainer: {
-    gap: Spacing.three,
-    alignSelf: 'stretch',
-    paddingHorizontal: Spacing.three,
-    paddingVertical: Spacing.four,
-    borderRadius: Spacing.four,
+  carte: {
+    backgroundColor: '#FFFFFF',
+    padding: 24,
+    borderRadius: 18,
+    borderWidth: 1,
+    borderColor: '#E4E8EF',
+  },
+  titreFormulaire: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: '#183153',
+    marginBottom: 24,
+  },
+  label: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#374151',
+    marginBottom: 8,
+  },
+  champ: {
+    backgroundColor: '#F9FAFC',
+    borderWidth: 1,
+    borderColor: '#D9DFE8',
+    borderRadius: 10,
+    padding: 14,
+    fontSize: 16,
+    color: '#183153',
+    marginBottom: 20,
+  },
+  bouton: {
+    backgroundColor: '#2457C5',
+    padding: 16,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  boutonAppuye: {
+    opacity: 0.8,
+  },
+  texteBouton: {
+    color: '#FFFFFF',
+    fontWeight: 'bold',
+    fontSize: 16,
   },
 });

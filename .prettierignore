@@ -1,0 +1,7 @@
+node_modules/
+.expo/
+dist/
+dist-*/
+assets/
+package-lock.json
+expo-env.d.ts
